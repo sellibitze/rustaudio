@@ -1,0 +1,10 @@
+[package]
+
+name = "rustaudio"
+version = "0.0.1"
+authors = ["Sebastian Gesemann <s.gesemann@gmail.com>"]
+
+[[lib]]
+
+name = "rustaudio"
+crate-type = ["dylib", "rlib"]
