@@ -73,7 +73,7 @@
 //!
 //! # What's next?
 //!
-//! See the `RustAudio` and `RaStream` structs and their methods.
+//! See the `RustAudio` structs and its methods.
 
 extern crate sync;
 extern crate libc;
@@ -257,7 +257,7 @@ pub fn portaudio_version_text() -> &'static str {
 }
 
 /// Possible errors from PortAudio translated to a Rust enum
-#[deriving(FromPrimitive)]
+#[deriving(FromPrimitive,PartialEq,Eq,Clone)]
 pub enum RaError {
     /// You should never see this error because this Rust binding prevents the
     /// use of any PortAudio function that requires PortAudio to be initialized first.
@@ -336,6 +336,7 @@ macro_rules! tryRa(
 
 /// Type ID for a host's sound API
 #[repr(C)]
+#[deriving(FromPrimitive,PartialEq,Eq,Clone)]
 pub enum HostApiTypeId {
     RaInDevelopment=0, /* use while developing support for a new host API */
     RaDirectSound=1,
@@ -708,7 +709,7 @@ impl Show for RustAudio {
 }
 
 /// Describes the type of samples
-#[deriving(Clone,PartialEq,Eq)]
+#[deriving(FromPrimitive,PartialEq,Eq,Clone)]
 pub enum SampleType {
     /// 32-bit floating point samples
     Float32 = 0x00000001,
@@ -751,6 +752,7 @@ bitflags!(
 
 static STREAM_INFO_STRUCT_VERSION: ffi::c_int = 1;
 /// A structure containing unchanging information about an open stream.
+/// This is what PortAudio remembers for us.
 #[repr(C)]
 pub struct StreamInfo {
     // This should match STREAM_INFO_STRUCT_VERSION
@@ -789,6 +791,7 @@ impl StreamInfo {
     }
 }
 
+#[deriving(PartialEq,Eq,Clone)]
 pub enum StopState {
     /// The stream has not been started or has been stopped.
     /// For an output stream, this means that it still might play
@@ -799,6 +802,7 @@ pub enum StopState {
     NotStopped
 }
 
+#[deriving(PartialEq,Eq,Clone)]
 pub enum Activity {
     /// Sound is recorded or played back. For an output stream this
     /// can be even the case when it has been stopped already because
@@ -814,12 +818,13 @@ pub enum Activity {
 /// that provide a richer interface. So, this saves a bit of duplication.
 struct StreamHandle {
     raw_ptr: *mut ffi::PaStream,
-    _ra: RustAudio
+    _ra: RustAudio,
+    _ns: std::kinds::marker::NoSync
 }
 
 impl StreamHandle {
     fn new(ra: RustAudio, raw_ptr: *mut ffi::PaStream) -> StreamHandle {
-        StreamHandle { raw_ptr: raw_ptr, _ra: ra }
+        StreamHandle { raw_ptr: raw_ptr, _ra: ra, _ns: std::kinds::marker::NoSync }
     }
     fn is_valid(&self) -> bool { self.raw_ptr.is_not_null() }
     fn close_and_invalidate(&mut self) -> ffi::PaError {
@@ -843,16 +848,13 @@ impl Drop for StreamHandle {
 #[doc(hidden)]
 trait RaStreamPrivate {
     fn get_portaudio_stream_pointer(&self) -> *mut ffi::PaStream;
-    fn stored_sample_rate(&self) -> f64;
     fn close_and_invalidate(&mut self) -> ffi::PaError;
 }
 
 /// Any kind of RustAudio stream supports these functions
 pub trait RaStreamAny: RaStreamPrivate {
-    /// returns the sample rate this stream has been opened with
-    fn sample_rate(&self) -> f64 { self.stored_sample_rate() }
     /// Commences audio processing.
-    fn start(&mut self) -> RaResult<()> {
+    fn start(&self) -> RaResult<()> {
         let pa_stream = self.get_portaudio_stream_pointer();
         unsafe {
             tryRa!(ffi::Pa_StartStream(pa_stream));
@@ -863,7 +865,7 @@ pub trait RaStreamAny: RaStreamPrivate {
     /// audio buffers have been played before it returns (unless
     /// a certain callback has been installed which this binding
     /// does not support right now).
-    fn stop(&mut self) -> RaResult<()> {
+    fn stop(&self) -> RaResult<()> {
         let pa_stream = self.get_portaudio_stream_pointer();
         unsafe {
             tryRa!(ffi::Pa_StopStream(pa_stream));
@@ -872,7 +874,7 @@ pub trait RaStreamAny: RaStreamPrivate {
     }
     /// Terminates audio processing immediately without waiting for pending
     /// buffers to complete.
-    fn abort(&mut self) -> RaResult<()> {
+    fn abort(&self) -> RaResult<()> {
         let pa_stream = self.get_portaudio_stream_pointer();
         unsafe {
             tryRa!(ffi::Pa_AbortStream(pa_stream));
@@ -928,7 +930,7 @@ pub trait RaStreamAny: RaStreamPrivate {
             // return a reference without wrapping it into an Option
             assert!(raw.is_not_null())
             let result = mem::copy_lifetime(self,&*raw);
-            assert!(result._struct_version == STREAM_INFO_STRUCT_VERSION);
+            assert!(result._struct_version <= STREAM_INFO_STRUCT_VERSION);
             result
         }
     }
@@ -1001,7 +1003,7 @@ pub trait RaInputStreamExt<S: Sample> : RaInputStreamAny {
     /// Depending on the stream flags used to open this stream, the function
     /// might return an `Err(RaInputOverflowed)`. In that case, PortAudio
     /// has discarded some audio data prior to this function call.
-    fn read(&mut self, into: & mut [S]) -> RaResult<()> {
+    fn read(&self, into: & mut [S]) -> RaResult<()> {
         assert!(into.len() % self.input_channel_count() == 0);
         let num_frames = into.len() / self.input_channel_count();
         tryRa!(unsafe {
@@ -1021,7 +1023,7 @@ pub trait RaOutputStreamExt<T: Sample> : RaOutputStreamAny {
     /// function might return an `Err(RaOutputUnderflowed)`. In that case,
     /// PortAudio has inserted zeros to fill the output buffer between the
     /// previous call and this one.
-    fn write(&mut self, from: &[T]) -> RaResult<()> {
+    fn write(&self, from: &[T]) -> RaResult<()> {
         assert!(from.len() % self.output_channel_count() == 0);
         let num_frames = from.len() / self.output_channel_count();
         tryRa!(unsafe {
@@ -1047,7 +1049,6 @@ impl<S: Sample, T: Sample, X: RaInputStreamExt<S> + RaOutputStreamExt<T>>
 /// Represents an open stream we can read from
 pub struct RaInputStream<S> {
     base: StreamHandle,
-    smp_rate: f64,
     smp_type: SampleType,
     n_channels: uint
 }
@@ -1055,9 +1056,6 @@ pub struct RaInputStream<S> {
 impl<S: Sample> RaStreamPrivate for RaInputStream<S> {
     fn get_portaudio_stream_pointer(&self) -> *mut ffi::PaStream {
         self.base.raw_ptr
-    }
-    fn stored_sample_rate(&self) -> f64 {
-        self.smp_rate
     }
     fn close_and_invalidate(&mut self) -> ffi::PaError {
         self.close_and_invalidate()
@@ -1077,7 +1075,6 @@ impl<S: Sample> RaInputStreamExt<S> for RaInputStream<S> {}
 /// Represents an open stream we can write to
 pub struct RaOutputStream<T> {
     base: StreamHandle,
-    smp_rate: f64,
     smp_type: SampleType,
     n_channels: uint
 }
@@ -1085,9 +1082,6 @@ pub struct RaOutputStream<T> {
 impl<T: Sample> RaStreamPrivate for RaOutputStream<T> {
     fn get_portaudio_stream_pointer(&self) -> *mut ffi::PaStream {
         self.base.raw_ptr
-    }
-    fn stored_sample_rate(&self) -> f64 {
-        self.smp_rate
     }
     fn close_and_invalidate(&mut self) -> ffi::PaError {
         self.close_and_invalidate()
@@ -1107,7 +1101,6 @@ impl<T: Sample> RaOutputStreamExt<T> for RaOutputStream<T> {}
 /// Represents an open stream we can read from and write to
 pub struct RaDuplexStream<S, T> {
     base: StreamHandle,
-    smp_rate: f64,
     inp_smp_type: SampleType,
     inp_n_channels: uint,
     out_smp_type: SampleType,
@@ -1117,9 +1110,6 @@ pub struct RaDuplexStream<S, T> {
 impl<S: Sample, T: Sample> RaStreamPrivate for RaDuplexStream<S, T> {
     fn get_portaudio_stream_pointer(&self) -> *mut ffi::PaStream {
         self.base.raw_ptr
-    }
-    fn stored_sample_rate(&self) -> f64 {
-        self.smp_rate
     }
     fn close_and_invalidate(&mut self) -> ffi::PaError {
         self.close_and_invalidate()
@@ -1170,7 +1160,6 @@ impl RustAudio {
         assert!(s.is_not_null());
         Ok(RaInputStream::<S> {
             base: StreamHandle::new(self.clone(), s),
-            smp_rate: sample_rate,
             smp_type: get_sample_type_of::<S>(),
             n_channels: channels
         })
@@ -1191,7 +1180,6 @@ impl RustAudio {
         assert!(s.is_not_null());
         Ok(RaOutputStream::<T> {
             base: StreamHandle::new(self.clone(), s),
-            smp_rate: sample_rate,
             smp_type: get_sample_type_of::<T>(),
             n_channels: channels
         })
@@ -1215,7 +1203,6 @@ impl RustAudio {
         assert!(s.is_not_null());
         Ok(RaDuplexStream::<S, T> {
             base: StreamHandle::new(self.clone(), s),
-            smp_rate: sample_rate,
             inp_smp_type: get_sample_type_of::<S>(),
             out_smp_type: get_sample_type_of::<T>(),
             inp_n_channels: inp_channels,
