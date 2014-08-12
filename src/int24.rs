@@ -1,4 +1,25 @@
-use std::mem;
+// The MIT License (MIT)
+// 
+// Copyright (c) 2014 Sebastian Gesemann
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 use std::ptr;
 use std::default::Default;
 
@@ -21,28 +42,28 @@ fn clipped(s: i32) -> i32 {
 #[inline]
 fn raw24_ptr(r: &i32) -> *const u8 {
     // no need for an offset on a little endian machine
-    unsafe { mem::transmute::<&i32,*const u8>(r) }
+    r as *const i32 as *const u8
 }
 
 #[cfg(target_endian="big")]
 #[inline]
 fn raw24_ptr(r: &i32) -> *const u8 {
     // let's skip the most significant byte
-    unsafe { mem::transmute::<&i32,*const u8>(r).offset(1) }
+    unsafe { (r as *const i32 as *const u8).offset(1) }
 }
 
 #[cfg(target_endian="little")]
 #[inline]
 fn raw24_mut_ptr(r: &mut i32) -> *mut u8 {
     // no need for an offset on a little endian machine
-    unsafe { mem::transmute::<&mut i32,*mut u8>(r) }
+    r as *mut i32 as *mut u8
 }
 
 #[cfg(target_endian="big")]
 #[inline]
 fn raw24_mut_ptr(r: &mut i32) -> *mut u8 {
     // let's skip the most significant byte
-    unsafe { mem::transmute::<&mut i32,*mut u8>(r).offset(1) }
+    unsafe { (r as *mut i32 as *mut u8).offset(1) }
 }
 
 impl i24 {
