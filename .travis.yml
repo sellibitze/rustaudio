@@ -9,4 +9,4 @@ install:
   - sudo apt-get install libportaudio-dev
 script:
   - cargo build
-
+  - cargo test
