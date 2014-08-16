@@ -39,6 +39,7 @@ fn sum_of_squares(on: &[i16]) -> i64 {
 }
 
 fn root_mean_square(on: &[i16]) -> f64 {
+    if on.len() == 0 { return 0.0; }
     ((sum_of_squares(on) as f64) / (on.len() as f64)).sqrt()
 }
 
@@ -72,7 +73,7 @@ fn remove_at_front<T>(v: &mut Vec<T>, count: uint) {
 /// This function starts recording and checks for a certain "loudness" level.
 /// if it's high enough for three consecutive blocks, the 5 buffered ones
 /// are saved and new audio data is appended to the vector. `record` continues
-/// to minotor loudness and if it's too quiet for too long, recording will stop
+/// to monitor loudness and if it's too quiet for too long, recording will stop
 /// and the function will return the audio data.
 fn record(inp: &RaInputStream<i16>, mut buff: Vec<i16>) -> RaResult<Vec<i16>> {
     let block = 2400;
@@ -145,7 +146,7 @@ fn do_parrot() -> RaResult<()> {
     };
     // Pick default output device...
     let outdev = match try!(ra.default_output_device()) {
-        None => { println!("There's no default input device"); return Ok(()); }
+        None => { println!("There's no default output device"); return Ok(()); }
         Some(d) => d
     };
     // setup output stream..
