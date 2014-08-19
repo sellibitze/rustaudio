@@ -78,9 +78,6 @@
 extern crate sync;
 extern crate libc;
 
-#[cfg(test)]
-extern crate num; // for complex numbers
-
 use sync::mutex::{StaticMutex, MUTEX_INIT};
 use std::fmt;
 use std::mem;
