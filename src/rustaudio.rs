@@ -1047,7 +1047,8 @@ impl<S: Sample, T: Sample, X: RaInputStreamExt<S> + RaOutputStreamExt<T>>
 pub struct RaInputStream<S> {
     base: StreamHandle,
     smp_type: SampleType,
-    n_channels: uint
+    n_channels: uint,
+    _ma: std::kinds::marker::InvariantType<S>
 }
 
 impl<S: Sample> RaStreamPrivate for RaInputStream<S> {
@@ -1073,7 +1074,8 @@ impl<S: Sample> RaInputStreamExt<S> for RaInputStream<S> {}
 pub struct RaOutputStream<T> {
     base: StreamHandle,
     smp_type: SampleType,
-    n_channels: uint
+    n_channels: uint,
+    _ma: std::kinds::marker::InvariantType<T>
 }
 
 impl<T: Sample> RaStreamPrivate for RaOutputStream<T> {
@@ -1101,7 +1103,9 @@ pub struct RaDuplexStream<S, T> {
     inp_smp_type: SampleType,
     inp_n_channels: uint,
     out_smp_type: SampleType,
-    out_n_channels: uint
+    out_n_channels: uint,
+    _ma1: std::kinds::marker::InvariantType<S>,
+    _ma2: std::kinds::marker::InvariantType<T>
 }
 
 impl<S: Sample, T: Sample> RaStreamPrivate for RaDuplexStream<S, T> {
@@ -1158,7 +1162,8 @@ impl RustAudio {
         Ok(RaInputStream::<S> {
             base: StreamHandle::new(self.clone(), s),
             smp_type: get_sample_type_of::<S>(),
-            n_channels: channels
+            n_channels: channels,
+            _ma: std::kinds::marker::InvariantType::<S>
         })
     }
     pub fn open_output<T: Sample>(&self,
@@ -1178,7 +1183,8 @@ impl RustAudio {
         Ok(RaOutputStream::<T> {
             base: StreamHandle::new(self.clone(), s),
             smp_type: get_sample_type_of::<T>(),
-            n_channels: channels
+            n_channels: channels,
+            _ma: std::kinds::marker::InvariantType::<T>
         })
     }
     pub fn open_duplex<S: Sample, T: Sample>(&self,
@@ -1203,7 +1209,9 @@ impl RustAudio {
             inp_smp_type: get_sample_type_of::<S>(),
             out_smp_type: get_sample_type_of::<T>(),
             inp_n_channels: inp_channels,
-            out_n_channels: out_channels
+            out_n_channels: out_channels,
+            _ma1: std::kinds::marker::InvariantType::<S>,
+            _ma2: std::kinds::marker::InvariantType::<T>
         })
     }
 }
