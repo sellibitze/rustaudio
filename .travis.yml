@@ -1,6 +1,6 @@
 language: rust
 install:
-  - sudo apt-get install -y libportaudio-dev
+  - sudo apt-get install -y portaudio19-dev
 script:
   - cargo build
   - cargo test
