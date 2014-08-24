@@ -1,6 +1,6 @@
+language: rust
 install:
-  - sudo apt-get install -qq rust-nightly cargo
-  - sudo apt-get install libportaudio-dev
+  - sudo apt-get install -y libportaudio-dev
 script:
   - cargo build
   - cargo test
