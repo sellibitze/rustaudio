@@ -1,6 +1,11 @@
 language: rust
+env:
+  global:
+    - secure: b1NzhWslXKNAanXJd6ZEircaH3n3tfbjLGjJtrMn1oZ0THOaQT+VgdliHa72Aw/fMIfZ/d1RQ318nMHG2YXOQv8uiKT5ZdHMbzu6r61wMQpa07WubGyIvPwiUVgO9bvVJxyAoLCyjElpaEPcM5wfTjNezvXIjVGf97eXWPYL7Sg=
 install:
   - sudo apt-get install -y portaudio19-dev
 script:
   - cargo build
   - cargo test
+after_script:
+  - curl http://www.rust-ci.org/artifacts/put?t=$RUSTCI_TOKEN | sh
